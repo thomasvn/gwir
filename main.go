@@ -4,23 +4,27 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
+	"strconv"
+	"time"
 
 	"github.com/google/go-github/v61/github"
 )
 
 func main() {
 	DAYS := os.Getenv("DAYS")
+	DAYS_INT, _ := strconv.Atoi(DAYS)
 	GITHUB_ORGANIZATION := os.Getenv("GITHUB_ORGANIZATION")
-
-	// TODO: PAT should be optional. Make best effort GET requests.
 	GITHUB_PERSONAL_ACCESS_TOKEN := os.Getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
-	if GITHUB_PERSONAL_ACCESS_TOKEN == "" {
-		fmt.Println("GITHUB_PERSONAL_ACCESS_TOKEN is not set")
-		return
-	}
-	client := github.NewClient(nil).WithAuthToken(GITHUB_PERSONAL_ACCESS_TOKEN)
 
-	// Compile list of repos in this organization using Paginated API
+	var client *github.Client
+	if GITHUB_PERSONAL_ACCESS_TOKEN == "" {
+		client = github.NewClient(nil)
+	} else {
+		client = github.NewClient(nil).WithAuthToken(GITHUB_PERSONAL_ACCESS_TOKEN)
+	}
+
+	// Get all repos in this GITHUB_ORGANIZATION
 	allRepos := []*github.Repository{}
 	page := 1
 	for {
@@ -34,16 +38,51 @@ func main() {
 		}
 		page++
 	}
-	for _, repo := range allRepos {
-		fmt.Println(repo)
-	}
-	fmt.Println(len(allRepos))
 
-	// For each repo, find its activity over the DAYS
-	// Potential APIs:
-	// client.Repositories.ListCommitActivity()
-	// client.PullRequests.List()
-	// client.Issues.List()
-	// client.Activity.ListRepositoryEvents()
-	// client.Activity.ListRepositoryNotifications()
+	fmt.Println("Processing ...")
+	type repoCount struct {
+		RepoName string
+		Count    int
+	}
+	repoCounts := []repoCount{}
+	for _, repo := range allRepos {
+		numRepoEvents := getNumRepoEventsLastXDays(client, repo.Owner.GetLogin(), repo.GetName(), DAYS_INT)
+		repoCounts = append(repoCounts, repoCount{RepoName: repo.GetName(), Count: numRepoEvents})
+		fmt.Println(repo.Owner.GetLogin(), "/", repo.GetName(), "=", numRepoEvents)
+	}
+
+	fmt.Println("\nOrdered results:")
+	sort.Slice(repoCounts, func(i, j int) bool {
+		return repoCounts[i].Count > repoCounts[j].Count
+	})
+	for _, repoCount := range repoCounts {
+		fmt.Println(repoCount.RepoName, "=", repoCount.Count)
+	}
+}
+
+func getNumRepoEventsLastXDays(client *github.Client, owner string, repo string, x int) int {
+	numEvents := 0
+	stop := false
+	page := 1
+	for {
+		opts := &github.ListOptions{}
+		opts.PerPage = 100
+		opts.Page = page
+		events, res, _ := client.Activity.ListRepositoryEvents(context.Background(), owner, repo, opts)
+		for _, event := range events {
+			if event.GetCreatedAt().Time.Before(time.Now().AddDate(0, 0, -1*x)) {
+				stop = true
+				break
+			}
+			numEvents++
+		}
+		if stop {
+			break
+		}
+		if res.NextPage == 0 {
+			break
+		}
+		page++
+	}
+	return numEvents
 }
