@@ -30,10 +30,12 @@ source ~/.zshrc
 ```
 
 <!-- 
-- First start by listing repositories which had the most activity in the past DAYS
-
-- Rank by activity?
+TODO: 
+- For each of the results, show all PRs and Issues in the last X days.
+- Just show top PRs and Issues?
+- Rank repo or issues/prs by activity?
 - Activity includes #commit, #prs, #issues ?
+- Be able to show old PRs which are being commented on?
 
 - Event types include Push, PR Comment, PR Review, 
 
@@ -41,4 +43,10 @@ source ~/.zshrc
 	// client.PullRequests.List()
 	// client.Issues.List()
 	// client.Activity.ListRepositoryNotifications()
+-->
+
+<!-- 
+DONE:
+- First start by listing repositories which had the most activity in the past DAYS
+- Don't list repos which have zero activity.
 -->

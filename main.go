@@ -38,6 +38,7 @@ func main() {
 		}
 		page++
 	}
+	// TODO: Check `repos.UpdatedAt`. Only add ones which have been updated in past few days. Prevent extra work later on.
 
 	fmt.Println("Processing ...")
 	type repoCount struct {
@@ -56,7 +57,23 @@ func main() {
 		return repoCounts[i].Count > repoCounts[j].Count
 	})
 	for _, repoCount := range repoCounts {
+		if repoCount.Count == 0 {
+			break
+		}
 		fmt.Println(repoCount.RepoName, "=", repoCount.Count)
+	}
+
+	// TODO: It's not pulling all PRs correctly.
+	fmt.Println("\nRecent PRs:")
+	for _, repoCount := range repoCounts {
+		if repoCount.Count == 0 {
+			break
+		}
+		fmt.Println(repoCount.RepoName, "(", repoCount.Count, ")", ":")
+		prs := getRepoPRsLastXDays(client, GITHUB_ORGANIZATION, repoCount.RepoName, DAYS_INT)
+		for _, pr := range prs {
+			fmt.Println(" - ", pr.GetTitle(), ":", pr.GetHTMLURL())
+		}
 	}
 }
 
@@ -85,4 +102,33 @@ func getNumRepoEventsLastXDays(client *github.Client, owner string, repo string,
 		page++
 	}
 	return numEvents
+}
+
+func getRepoPRsLastXDays(client *github.Client, owner string, repo string, x int) []*github.PullRequest {
+	prs := []*github.PullRequest{}
+	stop := false
+	page := 1
+	for {
+		opts := &github.PullRequestListOptions{}
+		opts.State = "all"
+		opts.Sort = "updated"
+		opts.ListOptions.PerPage = 100
+		opts.ListOptions.Page = page
+		pulls, res, _ := client.PullRequests.List(context.Background(), owner, repo, opts)
+		for _, pull := range pulls {
+			if pull.GetUpdatedAt().Time.Before(time.Now().AddDate(0, 0, -1*x)) {
+				stop = true
+				break
+			}
+			prs = append(prs, pull)
+		}
+		if stop {
+			break
+		}
+		if res.NextPage == 0 {
+			break
+		}
+		page++
+	}
+	return prs
 }
