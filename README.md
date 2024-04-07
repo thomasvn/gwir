@@ -37,12 +37,18 @@ TODO:
 - Activity includes #commit, #prs, #issues ?
 - Be able to show old PRs which are being commented on?
 
+- Use a repo's pushed_at or updated_at to quickly filter out repos?
+  - https://stackoverflow.com/questions/15918588/github-api-v3-what-is-the-difference-between-pushed-at-and-updated-at
+  - https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-organization-repositories
+
 - Event types include Push, PR Comment, PR Review, 
 
 	// client.Repositories.ListCommitActivity()
 	// client.PullRequests.List()
 	// client.Issues.List()
 	// client.Activity.ListRepositoryNotifications()
+
+- Frontend?
 -->
 
 <!-- 

@@ -38,47 +38,55 @@ func main() {
 		}
 		page++
 	}
-	// TODO: Check `repos.UpdatedAt`. Only add ones which have been updated in past few days. Prevent extra work later on.
 
-	fmt.Println("Processing ...")
-	type repoCount struct {
-		RepoName string
-		Count    int
+	// For each repo, print the number/type of events in the last X days
+	fmt.Println("\nProcessing ...")
+	type RepoEventCount struct {
+		RepoName    string
+		EventsMap   map[string]int
+		TotalEvents int
 	}
-	repoCounts := []repoCount{}
+	repoEventCounts := []RepoEventCount{}
 	for _, repo := range allRepos {
-		numRepoEvents := getNumRepoEventsLastXDays(client, repo.Owner.GetLogin(), repo.GetName(), DAYS_INT)
-		repoCounts = append(repoCounts, repoCount{RepoName: repo.GetName(), Count: numRepoEvents})
-		fmt.Println(repo.Owner.GetLogin(), "/", repo.GetName(), "=", numRepoEvents)
+		eventsMap, totalCount := getRepoEventsLastXDays(client, repo.Owner.GetLogin(), repo.GetName(), DAYS_INT)
+		if totalCount > 0 {
+			repoEventCounts = append(repoEventCounts, RepoEventCount{RepoName: repo.GetName(), EventsMap: eventsMap, TotalEvents: totalCount})
+			fmt.Printf("%s/%s. TotalEvents=%d\n", repo.Owner.GetLogin(), repo.GetName(), totalCount)
+			for k, v := range eventsMap {
+				fmt.Printf("  - %s=%d\n", k, v)
+			}
+		}
 	}
 
+	// Order the results from above by TotalEvents
 	fmt.Println("\nOrdered results:")
-	sort.Slice(repoCounts, func(i, j int) bool {
-		return repoCounts[i].Count > repoCounts[j].Count
+	sort.Slice(repoEventCounts, func(i, j int) bool {
+		return repoEventCounts[i].TotalEvents > repoEventCounts[j].TotalEvents
 	})
-	for _, repoCount := range repoCounts {
-		if repoCount.Count == 0 {
-			break
+	for _, repoEventCount := range repoEventCounts {
+		fmt.Printf("%s. TotalEvents=%d\n", repoEventCount.RepoName, repoEventCount.TotalEvents)
+		for k, v := range repoEventCount.EventsMap {
+			fmt.Printf("  - %s=%d\n", k, v)
 		}
-		fmt.Println(repoCount.RepoName, "=", repoCount.Count)
 	}
 
-	// TODO: It's not pulling all PRs correctly.
-	fmt.Println("\nRecent PRs:")
-	for _, repoCount := range repoCounts {
-		if repoCount.Count == 0 {
-			break
-		}
-		fmt.Println(repoCount.RepoName, "(", repoCount.Count, ")", ":")
-		prs := getRepoPRsLastXDays(client, GITHUB_ORGANIZATION, repoCount.RepoName, DAYS_INT)
-		for _, pr := range prs {
-			fmt.Println(" - ", pr.GetTitle(), ":", pr.GetHTMLURL())
-		}
-	}
+	// // TODO: It's not pulling all PRs correctly.
+	// fmt.Println("\nRecent PRs:")
+	// for _, repoCount := range repoCounts {
+	// 	if repoCount.Count == 0 {
+	// 		break
+	// 	}
+	// 	fmt.Println(repoCount.RepoName, "(", repoCount.Count, ")", ":")
+	// 	prs := getRepoPRsLastXDays(client, GITHUB_ORGANIZATION, repoCount.RepoName, DAYS_INT)
+	// 	for _, pr := range prs {
+	// 		fmt.Println(" - ", pr.GetTitle(), ":", pr.GetHTMLURL())
+	// 	}
+	// }
 }
 
-func getNumRepoEventsLastXDays(client *github.Client, owner string, repo string, x int) int {
-	numEvents := 0
+func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x int) (map[string]int, int) {
+	totalCount := 0
+	results := make(map[string]int)
 	stop := false
 	page := 1
 	for {
@@ -91,7 +99,20 @@ func getNumRepoEventsLastXDays(client *github.Client, owner string, repo string,
 				stop = true
 				break
 			}
-			numEvents++
+			if val, ok := results[event.GetType()]; ok {
+				results[event.GetType()] = val + 1
+			} else {
+				results[event.GetType()] = 1
+			}
+			totalCount++
+
+			// TODO: Enrich information about events
+			// payload, _ := event.ParsePayload()
+			// fmt.Printf("\tDEBUG. Type: %v, Event payload: %v\n", reflect.TypeOf(payload), payload)
+			// switch event.GetType() {
+			// case "PullRequestEvent":
+			// 	prEvent := payload.(*github.PullRequestEvent)
+
 		}
 		if stop {
 			break
@@ -101,7 +122,7 @@ func getNumRepoEventsLastXDays(client *github.Client, owner string, repo string,
 		}
 		page++
 	}
-	return numEvents
+	return results, totalCount
 }
 
 func getRepoPRsLastXDays(client *github.Client, owner string, repo string, x int) []*github.PullRequest {
