@@ -16,15 +16,12 @@ go run main.go
 
 ```bash
 go build -o ghs
-cp ghs /usr/local/bin
+sudo cp ghs /usr/local/bin
 
 # Add environment variables
 echo 'export DAYS=' >> ~/.zshrc
 echo 'export GITHUB_ORGANIZATION=' >> ~/.zshrc
 echo 'export GITHUB_PERSONAL_ACCESS_TOKEN=' >> ~/.zshrc
-
-# Update PATH to include the ghs binary directory
-echo 'export PATH=$PATH:/usr/local/bin/ghs' >> ~/.zshrc
 
 source ~/.zshrc
 ```
@@ -48,6 +45,8 @@ TODO:
 	// client.Issues.List()
 	// client.Activity.ListRepositoryNotifications()
 
+- Take params via args instead of env vars.
+- Concurrency
 - Frontend?
 -->
 
