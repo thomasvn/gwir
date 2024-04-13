@@ -40,7 +40,7 @@ func main() {
 	}
 
 	// For each repo, print the number/type of events in the last X days
-	fmt.Println("\nProcessing ...")
+	fmt.Printf("\n## Processing ... \n\n")
 	type RepoEventCount struct {
 		RepoName    string
 		EventsMap   map[string]int
@@ -57,18 +57,20 @@ func main() {
 	}
 
 	// Order the results from above by TotalEvents
-	fmt.Println("\nOrdered results:")
+	fmt.Printf("\n## Ordered results: \n")
 	sort.Slice(repoEventCounts, func(i, j int) bool {
 		return repoEventCounts[i].TotalEvents > repoEventCounts[j].TotalEvents
 	})
 	for _, repoEventCount := range repoEventCounts {
 		fmt.Printf("\n%s. TotalEvents=%d\n", repoEventCount.RepoName, repoEventCount.TotalEvents)
-		for k, v := range repoEventCount.EventsMap {
-			fmt.Printf("  - %s=%d\n", k, v)
+		EventsMapSortedSlice := sortMap(repoEventCount.EventsMap)
+		for _, pair := range EventsMapSortedSlice {
+			fmt.Printf("  - %s : %d\n", pair.Key, pair.Value)
 		}
 		fmt.Printf("PRs/Issues:\n")
-		for k, v := range repoEventCount.PRIssuesMap {
-			fmt.Printf("  - %s : %d\n", k, v)
+		PRIssuesSortedSlice := sortMap(repoEventCount.PRIssuesMap)
+		for _, pair := range PRIssuesSortedSlice {
+			fmt.Printf("  - %s : %d\n", pair.Key, pair.Value)
 		}
 	}
 }
@@ -167,4 +169,21 @@ func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x 
 	}
 
 	return eventCounts, prIssueCounts, totalCount
+}
+
+type pair struct {
+	Key   string
+	Value int
+}
+
+// sortMap sorts a map by its values in descending order.
+func sortMap(m map[string]int) []pair {
+	pairs := []pair{}
+	for k := range m {
+		pairs = append(pairs, pair{k, m[k]})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].Value > pairs[j].Value
+	})
+	return pairs
 }

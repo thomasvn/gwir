@@ -131,22 +131,22 @@ source ~/.zshrc
 
 <!--
 TODO: 
-- Order the PRs and Issues
-- Just show top PRs and Issues?
+- Only show top X PRs and Issues?
 - Take params via args instead of env vars.
 - Include a snippet of the name of the PR/Issue.
+- Concurrency
 - Use a repo's pushed_at or updated_at to quickly filter out repos?
   - https://stackoverflow.com/questions/15918588/github-api-v3-what-is-the-difference-between-pushed-at-and-updated-at
   - https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-organization-repositories
 - TUI
   - https://github.com/avelino/awesome-go?tab=readme-ov-file#command-line
   - https://github.com/charmbracelet/bubbletea
-- Concurrency
 - Frontend?
 -->
 
 <!-- 
 DONE (newest to oldest):
+- Order the PRs and Issues
 - For each of the results, show all PRs and Issues in the last X days.
 - First start by listing repositories which had the most activity in the past DAYS
 - Don't list repos which have zero activity.
