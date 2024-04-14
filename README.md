@@ -86,7 +86,7 @@ source ~/.zshrc
 TODO: 
 - Take params via args instead of env vars.
 - Define defaults for the env vars, so the user doens't have to set them.
-- Concurrency
+- Make all PR/Issue titles the same length to "prettify" the output?
 - Use a repo's pushed_at or updated_at to quickly filter out repos?
   - https://stackoverflow.com/questions/15918588/github-api-v3-what-is-the-difference-between-pushed-at-and-updated-at
   - https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-organization-repositories
@@ -98,6 +98,7 @@ TODO:
 
 <!-- 
 DONE (newest to oldest):
+- Concurrency
 - Include a snippet of the name of the PR/Issue.
 - Only show top X PRs and Issues?
 - Order the PRs and Issues

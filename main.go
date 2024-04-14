@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/google/go-github/v61/github"
@@ -50,20 +51,30 @@ func main() {
 		PRIssueTitle      map[string]string
 		TotalEvents       int
 	}
-	repoEventCounts := []RepoEventCount{}
+	var wg sync.WaitGroup
+	repoEventCountsChan := make(chan RepoEventCount, len(allRepos))
 	for _, repo := range allRepos {
-		eventCounts, prIssueCounts, prIssueTitles, totalCount := getRepoEventsLastXDays(client, repo.Owner.GetLogin(), repo.GetName(), DAYS_INT)
-		if totalCount > 0 {
-			repoEventCounts = append(repoEventCounts,
-				RepoEventCount{
+		wg.Add(1)
+		go func(repo *github.Repository) {
+			defer wg.Done()
+			eventCounts, prIssueCounts, prIssueTitles, totalCount := getRepoEventsLastXDays(client, repo.Owner.GetLogin(), repo.GetName(), DAYS_INT)
+			if totalCount > 0 {
+				repoEventCountsChan <- RepoEventCount{
 					RepoName:          repo.Owner.GetLogin() + "/" + repo.GetName(),
 					EventTypeCount:    eventCounts,
 					PRIssueEventCount: prIssueCounts,
 					PRIssueTitle:      prIssueTitles,
 					TotalEvents:       totalCount,
-				})
-			fmt.Printf("%s/%s. TotalEvents=%d\n", repo.Owner.GetLogin(), repo.GetName(), totalCount)
-		}
+				}
+				fmt.Printf("%s/%s. TotalEvents=%d\n", repo.Owner.GetLogin(), repo.GetName(), totalCount)
+			}
+		}(repo)
+	}
+	wg.Wait()
+	close(repoEventCountsChan)
+	repoEventCounts := []RepoEventCount{}
+	for repoEventCount := range repoEventCountsChan {
+		repoEventCounts = append(repoEventCounts, repoEventCount)
 	}
 
 	// Order the results from above by TotalEvents
