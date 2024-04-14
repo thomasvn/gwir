@@ -14,6 +14,8 @@ import (
 func main() {
 	DAYS := os.Getenv("DAYS")
 	DAYS_INT, _ := strconv.Atoi(DAYS)
+	TOPXACTIVITIES := os.Getenv("TOPXACTIVITIES")
+	TOPXACTIVITIES_INT, _ := strconv.Atoi(TOPXACTIVITIES)
 	GITHUB_ORGANIZATION := os.Getenv("GITHUB_ORGANIZATION")
 	GITHUB_PERSONAL_ACCESS_TOKEN := os.Getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
 
@@ -42,16 +44,24 @@ func main() {
 	// For each repo, print the number/type of events in the last X days
 	fmt.Printf("\n## Processing ... \n\n")
 	type RepoEventCount struct {
-		RepoName    string
-		EventsMap   map[string]int
-		PRIssuesMap map[string]int
-		TotalEvents int
+		RepoName          string
+		EventTypeCount    map[string]int
+		PRIssueEventCount map[string]int
+		PRIssueTitle      map[string]string
+		TotalEvents       int
 	}
 	repoEventCounts := []RepoEventCount{}
 	for _, repo := range allRepos {
-		eventCounts, prIssueCounts, totalCount := getRepoEventsLastXDays(client, repo.Owner.GetLogin(), repo.GetName(), DAYS_INT)
+		eventCounts, prIssueCounts, prIssueTitles, totalCount := getRepoEventsLastXDays(client, repo.Owner.GetLogin(), repo.GetName(), DAYS_INT)
 		if totalCount > 0 {
-			repoEventCounts = append(repoEventCounts, RepoEventCount{RepoName: repo.Owner.GetLogin() + "/" + repo.GetName(), EventsMap: eventCounts, PRIssuesMap: prIssueCounts, TotalEvents: totalCount})
+			repoEventCounts = append(repoEventCounts,
+				RepoEventCount{
+					RepoName:          repo.Owner.GetLogin() + "/" + repo.GetName(),
+					EventTypeCount:    eventCounts,
+					PRIssueEventCount: prIssueCounts,
+					PRIssueTitle:      prIssueTitles,
+					TotalEvents:       totalCount,
+				})
 			fmt.Printf("%s/%s. TotalEvents=%d\n", repo.Owner.GetLogin(), repo.GetName(), totalCount)
 		}
 	}
@@ -63,24 +73,32 @@ func main() {
 	})
 	for _, repoEventCount := range repoEventCounts {
 		fmt.Printf("\n%s. TotalEvents=%d\n", repoEventCount.RepoName, repoEventCount.TotalEvents)
-		EventsMapSortedSlice := sortMap(repoEventCount.EventsMap)
-		for _, pair := range EventsMapSortedSlice {
+		EventTypeCountSortedSlice := sortMap(repoEventCount.EventTypeCount)
+		for _, pair := range EventTypeCountSortedSlice {
 			fmt.Printf("  - %s : %d\n", pair.Key, pair.Value)
 		}
-		fmt.Printf("PRs/Issues:\n")
-		PRIssuesSortedSlice := sortMap(repoEventCount.PRIssuesMap)
+		fmt.Printf("Top PRs/Issues:\n")
+		count := 0
+		PRIssuesSortedSlice := sortMap(repoEventCount.PRIssueEventCount)
 		for _, pair := range PRIssuesSortedSlice {
-			fmt.Printf("  - %s : %d\n", pair.Key, pair.Value)
+			title := trimString(repoEventCount.PRIssueTitle[pair.Key], 64)
+			fmt.Printf("  - [%s](%s) : %d\n", title, pair.Key, pair.Value)
+			count++
+			if count >= TOPXACTIVITIES_INT {
+				break
+			}
 		}
 	}
 }
 
 // getRepoEventsLastXDays analyzes all activity in a repo within the last x
 // days. It returns 1) a map of event types and their counts, 2) a map of
-// PRs/Issues and their event counts, and 3) the total number of events.
-func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x int) (map[string]int, map[string]int, int) {
+// PRs/Issues and their event counts, 3) a map of PRs/Issues URLs and their
+// titles, and 4) the total number of events.
+func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x int) (map[string]int, map[string]int, map[string]string, int) {
 	eventCounts := make(map[string]int)
 	prIssueCounts := make(map[string]int)
+	prIssueTitle := make(map[string]string)
 	totalCount := 0
 
 	// Paginated API queries against ListRepositoryEvents()
@@ -115,6 +133,7 @@ func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x 
 				} else {
 					prIssueCounts[prEvent.PullRequest.GetHTMLURL()] = 1
 				}
+				prIssueTitle[prEvent.PullRequest.GetHTMLURL()] = prEvent.PullRequest.GetTitle()
 			case "PullRequestReviewEvent":
 				prReviewEvent := payload.(*github.PullRequestReviewEvent)
 				if val, ok := prIssueCounts[prReviewEvent.PullRequest.GetHTMLURL()]; ok {
@@ -122,6 +141,7 @@ func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x 
 				} else {
 					prIssueCounts[prReviewEvent.PullRequest.GetHTMLURL()] = 1
 				}
+				prIssueTitle[prReviewEvent.PullRequest.GetHTMLURL()] = prReviewEvent.PullRequest.GetTitle()
 			case "PullRequestReviewCommentEvent":
 				prReviewCommentEvent := payload.(*github.PullRequestReviewCommentEvent)
 				if val, ok := prIssueCounts[prReviewCommentEvent.PullRequest.GetHTMLURL()]; ok {
@@ -129,6 +149,7 @@ func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x 
 				} else {
 					prIssueCounts[prReviewCommentEvent.PullRequest.GetHTMLURL()] = 1
 				}
+				prIssueTitle[prReviewCommentEvent.PullRequest.GetHTMLURL()] = prReviewCommentEvent.PullRequest.GetTitle()
 			case "PullRequestReviewThreadEvent":
 				prReviewThreadEvent := payload.(*github.PullRequestReviewThreadEvent)
 				if val, ok := prIssueCounts[prReviewThreadEvent.PullRequest.GetHTMLURL()]; ok {
@@ -136,6 +157,7 @@ func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x 
 				} else {
 					prIssueCounts[prReviewThreadEvent.PullRequest.GetHTMLURL()] = 1
 				}
+				prIssueTitle[prReviewThreadEvent.PullRequest.GetHTMLURL()] = prReviewThreadEvent.PullRequest.GetTitle()
 			case "PullRequestTargetEvent":
 				prTargetEvent := payload.(*github.PullRequestTargetEvent)
 				if val, ok := prIssueCounts[prTargetEvent.PullRequest.GetHTMLURL()]; ok {
@@ -143,6 +165,7 @@ func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x 
 				} else {
 					prIssueCounts[prTargetEvent.PullRequest.GetHTMLURL()] = 1
 				}
+				prIssueTitle[prTargetEvent.PullRequest.GetHTMLURL()] = prTargetEvent.PullRequest.GetTitle()
 			case "IssuesEvent":
 				issuesEvent := payload.(*github.IssuesEvent)
 				if val, ok := prIssueCounts[issuesEvent.Issue.GetHTMLURL()]; ok {
@@ -150,6 +173,7 @@ func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x 
 				} else {
 					prIssueCounts[issuesEvent.Issue.GetHTMLURL()] = 1
 				}
+				prIssueTitle[issuesEvent.Issue.GetHTMLURL()] = issuesEvent.Issue.GetTitle()
 			case "IssueCommentEvent":
 				issueCommentEvent := payload.(*github.IssueCommentEvent)
 				if val, ok := prIssueCounts[issueCommentEvent.Issue.GetHTMLURL()]; ok {
@@ -157,6 +181,7 @@ func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x 
 				} else {
 					prIssueCounts[issueCommentEvent.Issue.GetHTMLURL()] = 1
 				}
+				prIssueTitle[issueCommentEvent.Issue.GetHTMLURL()] = issueCommentEvent.Issue.GetTitle()
 			}
 		}
 		if stop {
@@ -168,7 +193,7 @@ func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x 
 		page++
 	}
 
-	return eventCounts, prIssueCounts, totalCount
+	return eventCounts, prIssueCounts, prIssueTitle, totalCount
 }
 
 type pair struct {
@@ -186,4 +211,13 @@ func sortMap(m map[string]int) []pair {
 		return pairs[i].Value > pairs[j].Value
 	})
 	return pairs
+}
+
+// trimString trims the input string to the specified length n. It safely
+// handles strings shorter than n characters.
+func trimString(s string, n int) string {
+	if len(s) > n {
+		return s[:n]
+	}
+	return s
 }
