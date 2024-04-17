@@ -2,7 +2,7 @@
 
 Spotify Wrapped meets Github Activity. A CLI tool that generates an overview of a Github organization's activity over the last X days. Along with links to its most active Issues and PRs.
 
-```sh
+```txt
 $ gwir
 
 ## Processing ...
@@ -27,41 +27,16 @@ Top PRs/Issues:
   - [Create a hash key when agg properties are not set for Cloud Cost](https://github.com/opencost/opencost/pull/2700) : 5
   - [Provider alibaba support RRSA authentication](https://github.com/opencost/opencost/issues/2699) : 5
   - [`QueryAthenaPaginated: start query error: not found, ResolveEndp](https://github.com/opencost/opencost/issues/2697) : 5
-  - [Add config option to not query for local disk cost](https://github.com/opencost/opencost/pull/2441) : 4
 
-opencost/opencost-helm-chart. TotalEvents=61
-  - PullRequestReviewCommentEvent : 23
-  - PullRequestReviewEvent : 23
-  - IssueCommentEvent : 5
-  - PullRequestEvent : 3
-  - ForkEvent : 3
-  - PushEvent : 2
-  - CreateEvent : 1
-  - ReleaseEvent : 1
-Top PRs/Issues:
-  - [Add Parquet-Exporter helm chart](https://github.com/opencost/opencost-helm-chart/pull/195) : 24
-  - [Option to use existing kubernetes secret ](https://github.com/opencost/opencost-helm-chart/pull/196) : 20
-  - [chore(kubeStateMetrics): make it clear that the keys of kubeStat](https://github.com/opencost/opencost-helm-chart/pull/193) : 9
-  - [CloudCost QueryAthena Issues](https://github.com/opencost/opencost-helm-chart/issues/194) : 1
+...
 
-opencost/opencost-parquet-exporter. TotalEvents=14
-  - PullRequestReviewEvent : 5
-  - IssueCommentEvent : 4
-  - PullRequestReviewCommentEvent : 4
-  - PullRequestEvent : 1
-Top PRs/Issues:
-  - [Add azure storage account export target](https://github.com/opencost/opencost-parquet-exporter/pull/11) : 12
-  - [Add helm chart](https://github.com/opencost/opencost-parquet-exporter/pull/10) : 2
-
-opencost/opencost-grafana-dashboard. TotalEvents=1
-  - WatchEvent : 1
-Top PRs/Issues:
 ```
 
 ## Usage
 
 ```bash
 export DAYS=
+export TOPXACTIVITIES=
 export GITHUB_ORGANIZATION=
 export GITHUB_PERSONAL_ACCESS_TOKEN=  # optional
 
@@ -76,6 +51,7 @@ sudo cp gwir /usr/local/bin
 
 # Add environment variables
 echo 'export DAYS=' >> ~/.zshrc
+echo 'export TOPXACTIVITIES=' >> ~/.zshrc
 echo 'export GITHUB_ORGANIZATION=' >> ~/.zshrc
 echo 'export GITHUB_PERSONAL_ACCESS_TOKEN=' >> ~/.zshrc
 
@@ -85,6 +61,8 @@ source ~/.zshrc
 <!--
 TODO: 
 - Take params via args instead of env vars.
+  - https://pkg.go.dev/flag
+  - https://github.com/avelino/awesome-go?tab=readme-ov-file#standard-cli
 - Define defaults for the env vars, so the user doens't have to set them.
 - Make all PR/Issue titles the same length to "prettify" the output?
 - Use a repo's pushed_at or updated_at to quickly filter out repos?
@@ -94,6 +72,11 @@ TODO:
   - https://github.com/avelino/awesome-go?tab=readme-ov-file#command-line
   - https://github.com/charmbracelet/bubbletea
 - Frontend?
+- Use a pretty image for the README. https://github.com/charmbracelet/vhs. Keep it up to date with vhs-actions
+  - Asciicinema? https://github.com/kubecost/kubectl-cost/blob/main/assets/presentation-script.md
+- Pipe to Glow?
+  - echo "[Glow](https://github.com/charmbracelet/glow)" | glow -
+- CLI tool downloadable via `go get` or `brew install`
 -->
 
 <!-- 
