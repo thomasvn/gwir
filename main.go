@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
@@ -13,18 +13,27 @@ import (
 )
 
 func main() {
-	DAYS := os.Getenv("DAYS")
-	DAYS_INT, _ := strconv.Atoi(DAYS)
-	TOPXACTIVITIES := os.Getenv("TOPXACTIVITIES")
-	TOPXACTIVITIES_INT, _ := strconv.Atoi(TOPXACTIVITIES)
-	GITHUB_ORGANIZATION := os.Getenv("GITHUB_ORGANIZATION")
-	GITHUB_PERSONAL_ACCESS_TOKEN := os.Getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
+	// Parse arguments
+	var (
+		DAYS                         int
+		TOPXACTIVITIES               int
+		GITHUB_ORGANIZATION          string
+		GITHUB_PERSONAL_ACCESS_TOKEN string
+	)
+	flag.IntVar(&DAYS, "days", 7, "How many days back to analyze")
+	flag.IntVar(&TOPXACTIVITIES, "top", 5, "How many top PRs/Issues to show")
+	flag.StringVar(&GITHUB_ORGANIZATION, "org", "", "GitHub organization to analyze")
+	flag.StringVar(&GITHUB_PERSONAL_ACCESS_TOKEN, "token", "", "Optional. Passing a GitHub Personal Access Token allows you to view private repositories and make more API requests per hour. You can also set this token as an environment variable GITHUB_PERSONAL_ACCESS_TOKEN.")
+	flag.Parse()
 
+	// Prioritize any Github PAT which was passed as a flag, then check env vars
 	var client *github.Client
-	if GITHUB_PERSONAL_ACCESS_TOKEN == "" {
-		client = github.NewClient(nil)
-	} else {
+	if GITHUB_PERSONAL_ACCESS_TOKEN != "" {
 		client = github.NewClient(nil).WithAuthToken(GITHUB_PERSONAL_ACCESS_TOKEN)
+	} else if os.Getenv("GITHUB_PERSONAL_ACCESS_TOKEN") != "" {
+		client = github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_PERSONAL_ACCESS_TOKEN"))
+	} else {
+		client = github.NewClient(nil)
 	}
 
 	// Get all repos in this GITHUB_ORGANIZATION
@@ -57,7 +66,7 @@ func main() {
 		wg.Add(1)
 		go func(repo *github.Repository) {
 			defer wg.Done()
-			eventCounts, prIssueCounts, prIssueTitles, totalCount := getRepoEventsLastXDays(client, repo.Owner.GetLogin(), repo.GetName(), DAYS_INT)
+			eventCounts, prIssueCounts, prIssueTitles, totalCount := getRepoEventsLastXDays(client, repo.Owner.GetLogin(), repo.GetName(), DAYS)
 			if totalCount > 0 {
 				repoEventCountsChan <- RepoEventCount{
 					RepoName:          repo.Owner.GetLogin() + "/" + repo.GetName(),
@@ -95,7 +104,7 @@ func main() {
 			title := trimString(repoEventCount.PRIssueTitle[pair.Key], 64)
 			fmt.Printf("  - [%s](%s) : %d\n", title, pair.Key, pair.Value)
 			count++
-			if count >= TOPXACTIVITIES_INT {
+			if count >= TOPXACTIVITIES {
 				break
 			}
 		}

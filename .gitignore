@@ -1,4 +1,5 @@
 .env
 ghs
-gwir
+gwir*
 out
+.DS_Store

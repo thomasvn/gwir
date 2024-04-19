@@ -3,7 +3,7 @@
 Spotify Wrapped meets Github Activity. A CLI tool that generates an overview of a Github organization's activity over the last X days. Along with links to its most active Issues and PRs.
 
 ```txt
-$ gwir
+$ gwir -org opencost
 
 ## Processing ...
 
@@ -35,35 +35,35 @@ Top PRs/Issues:
 ## Usage
 
 ```bash
-export DAYS=
-export TOPXACTIVITIES=
-export GITHUB_ORGANIZATION=
-export GITHUB_PERSONAL_ACCESS_TOKEN=  # optional
-
-go run main.go
+$ gwir -h
+Usage of gwir:
+  -days int
+    	How many days back to analyze (default 7)
+  -org string
+    	GitHub organization to analyze
+  -token string
+    	Optional. Passing a GitHub Personal Access Token allows you to view private repositories and make more API requests per hour. You can also set this token as an environment variable GITHUB_PERSONAL_ACCESS_TOKEN.
+  -top int
+    	How many top PRs/Issues to show (default 5)
 ```
 
-## CLI Setup
+## Install
 
 ```bash
-go build -o gwir
-sudo cp gwir /usr/local/bin
-
-# Add environment variables
-echo 'export DAYS=' >> ~/.zshrc
-echo 'export TOPXACTIVITIES=' >> ~/.zshrc
-echo 'export GITHUB_ORGANIZATION=' >> ~/.zshrc
-echo 'export GITHUB_PERSONAL_ACCESS_TOKEN=' >> ~/.zshrc
-
-source ~/.zshrc
+curl -L -O https://github.com/thomasvn/gwir/releases/download/v0.1/gwir.darwin-amd64.zip
+unzip gwir.darwin-amd64.zip
+sudo mv gwir /usr/local/bin
 ```
 
 <!--
 TODO: 
-- Take params via args instead of env vars.
-  - https://pkg.go.dev/flag
-  - https://github.com/avelino/awesome-go?tab=readme-ov-file#standard-cli
-- Define defaults for the env vars, so the user doens't have to set them.
+- Github Releases
+  - GOOS=windows GOARCH=amd64 go build -o gwir.exe
+  - GOOS=darwin GOARCH=amd64 go build -o gwir
+  - GOOS=linux GOARCH=amd64 go build -o gwir
+  - Automate using Github Workflows
+- Provide a --version flag
+- CLI tool downloadable via `go get` or `brew install`
 - Make all PR/Issue titles the same length to "prettify" the output?
 - Use a repo's pushed_at or updated_at to quickly filter out repos?
   - https://stackoverflow.com/questions/15918588/github-api-v3-what-is-the-difference-between-pushed-at-and-updated-at
@@ -76,11 +76,13 @@ TODO:
   - Asciicinema? https://github.com/kubecost/kubectl-cost/blob/main/assets/presentation-script.md
 - Pipe to Glow?
   - echo "[Glow](https://github.com/charmbracelet/glow)" | glow -
-- CLI tool downloadable via `go get` or `brew install`
 -->
 
 <!-- 
 DONE (newest to oldest):
+- Take params via args instead of env vars.
+  - https://pkg.go.dev/flag
+  - https://github.com/avelino/awesome-go?tab=readme-ov-file#standard-cli
 - Concurrency
 - Include a snippet of the name of the PR/Issue.
 - Only show top X PRs and Issues?
