@@ -50,21 +50,21 @@ Usage of gwir:
 ## Install
 
 ```bash
-curl -L -O https://github.com/thomasvn/gwir/releases/download/v0.1/gwir.darwin-amd64.zip
-unzip gwir.darwin-amd64.zip
+RELEASE=v0.2
+ARCH=macos-arm64  # macos-amd64, linux-amd64, windows-amd64
+
+curl -L -O https://github.com/thomasvn/gwir/releases/download/$RELEASE/gwir.$ARCH.tar.gz
+tar -xvf gwir.$ARCH.tar.gz
 sudo mv gwir /usr/local/bin
 ```
 
 <!--
 TODO: 
-- Github Releases
-  - GOOS=windows GOARCH=amd64 go build -o gwir.exe
-  - GOOS=darwin GOARCH=amd64 go build -o gwir
-  - GOOS=linux GOARCH=amd64 go build -o gwir
-  - Automate using Github Workflows
+- Pass a "-user" flag to understand the activity of a user?
+- Prettify output. Specifically PR/Issue title length?
+- Automate releases via Github workflows?
 - Provide a --version flag
 - CLI tool downloadable via `go get` or `brew install`
-- Make all PR/Issue titles the same length to "prettify" the output?
 - Use a repo's pushed_at or updated_at to quickly filter out repos?
   - https://stackoverflow.com/questions/15918588/github-api-v3-what-is-the-difference-between-pushed-at-and-updated-at
   - https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-organization-repositories
@@ -80,6 +80,7 @@ TODO:
 
 <!-- 
 DONE (newest to oldest):
+- Github multiArch releases
 - Take params via args instead of env vars.
   - https://pkg.go.dev/flag
   - https://github.com/avelino/awesome-go?tab=readme-ov-file#standard-cli
