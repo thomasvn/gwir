@@ -7,26 +7,28 @@ $ gwir -org opencost
 
 ## Processing ...
 
-opencost/opencost. TotalEvents=70
-opencost/opencost-helm-chart. TotalEvents=61
-opencost/opencost-parquet-exporter. TotalEvents=14
-opencost/opencost-grafana-dashboard. TotalEvents=1
+opencost/opencost-grafana-dashboard. TotalEvents=16
+opencost/opencost-parquet-exporter. TotalEvents=1
+opencost/opencost-website. TotalEvents=1
+opencost/opencost-helm-chart. TotalEvents=35
+opencost/opencost-plugins. TotalEvents=31
+opencost/opencost. TotalEvents=101
 
-## Ordered results:
+## Ordered results ...
 
-opencost/opencost. TotalEvents=70
-  - IssueCommentEvent : 38
-  - WatchEvent : 16
-  - PullRequestEvent : 5
-  - IssuesEvent : 5
-  - CreateEvent : 3
+### opencost/opencost. TotalEvents=101
+  - IssueCommentEvent : 44
+  - PushEvent : 18
+  - PullRequestEvent : 13
+  - WatchEvent : 11
+  - CreateEvent : 7
+  - DeleteEvent : 4
+  - IssuesEvent : 2
   - PullRequestReviewEvent : 2
-  - DeleteEvent : 1
 Top PRs/Issues:
-  - [Support for specifying and attributing shared fixed costs](https://github.com/opencost/opencost/issues/2427) : 6
-  - [Create a hash key when agg properties are not set for Cloud Cost](https://github.com/opencost/opencost/pull/2700) : 5
-  - [Provider alibaba support RRSA authentication](https://github.com/opencost/opencost/issues/2699) : 5
-  - [`QueryAthenaPaginated: start query error: not found, ResolveEndp](https://github.com/opencost/opencost/issues/2697) : 5
+  - [TypeUtil Enhancements                           ](https://github.com/opencost/opencost/pull/2707) : 6
+  - [Intermittent "error":"vector cannot contain m...](https://github.com/opencost/opencost/issues/2704) : 6
+  - [AWS IRSA authorizer for cloud integrations      ](https://github.com/opencost/opencost/pull/2710) : 5
 
 ...
 
@@ -61,7 +63,6 @@ sudo mv gwir /usr/local/bin
 <!--
 TODO: 
 - Pass a "-user" flag to understand the activity of a user?
-- Prettify output. Specifically PR/Issue title length?
 - Automate releases via Github workflows?
 - Provide a --version flag
 - CLI tool downloadable via `go get` or `brew install`
@@ -80,7 +81,8 @@ TODO:
 
 <!-- 
 DONE (newest to oldest):
-- Github multiArch releases
+- Prettify output. Specifically PR/Issue title length?
+- Github MultiArch releases
 - Take params via args instead of env vars.
   - https://pkg.go.dev/flag
   - https://github.com/avelino/awesome-go?tab=readme-ov-file#standard-cli
