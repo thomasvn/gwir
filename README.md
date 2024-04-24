@@ -38,7 +38,6 @@ Top PRs/Issues:
 
 ```bash
 $ gwir -h
-Usage of gwir:
   -days int
     	How many days back to analyze (default 7)
   -org string
@@ -47,6 +46,8 @@ Usage of gwir:
     	Optional. Passing a GitHub Personal Access Token allows you to view private repositories and make more API requests per hour. You can also set this token as an environment variable GITHUB_PERSONAL_ACCESS_TOKEN.
   -top int
     	How many top PRs/Issues to show (default 5)
+  -usr string
+    	GitHub user to analyze
 ```
 
 ## Install
@@ -77,6 +78,12 @@ TODO:
   - Asciicinema? https://github.com/kubecost/kubectl-cost/blob/main/assets/presentation-script.md
 - Pipe to Glow?
   - echo "[Glow](https://github.com/charmbracelet/glow)" | glow -
+- Other APIs to investigate.
+    // client.Activity.ListEventsPerformedByUser()
+    // client.Activity.ListEventsReceivedByUser()
+    // client.Activity.ListUserEventsForOrganization()
+    // client.Activity.ListEventsForOrganization()
+    // client.Activity.ListFeeds()
 -->
 
 <!-- 

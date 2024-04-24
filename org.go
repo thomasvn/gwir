@@ -104,10 +104,8 @@ func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x 
 	stop := false
 	page := 1
 	for {
-		opts := &github.ListOptions{}
-		opts.PerPage = 100
-		opts.Page = page
-		events, res, _ := client.Activity.ListRepositoryEvents(context.Background(), owner, repo, opts)
+		opts := github.ListOptions{PerPage: 100, Page: page}
+		events, res, _ := client.Activity.ListRepositoryEvents(context.Background(), owner, repo, &opts)
 		for _, event := range events {
 			if event.GetCreatedAt().Time.Before(time.Now().AddDate(0, 0, -1*x)) {
 				stop = true
@@ -115,11 +113,7 @@ func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x 
 			}
 
 			// Tally the event counts
-			if val, ok := eventCounts[event.GetType()]; ok {
-				eventCounts[event.GetType()] = val + 1
-			} else {
-				eventCounts[event.GetType()] = 1
-			}
+			eventCounts[event.GetType()]++
 			totalCount++
 
 			// Tally PR/Issue event counts
@@ -127,59 +121,31 @@ func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x 
 			switch event.GetType() {
 			case "PullRequestEvent":
 				prEvent := payload.(*github.PullRequestEvent)
-				if val, ok := prIssueCounts[prEvent.PullRequest.GetHTMLURL()]; ok {
-					prIssueCounts[prEvent.PullRequest.GetHTMLURL()] = val + 1
-				} else {
-					prIssueCounts[prEvent.PullRequest.GetHTMLURL()] = 1
-				}
+				prIssueCounts[prEvent.PullRequest.GetHTMLURL()]++
 				prIssueTitle[prEvent.PullRequest.GetHTMLURL()] = prEvent.PullRequest.GetTitle()
 			case "PullRequestReviewEvent":
 				prReviewEvent := payload.(*github.PullRequestReviewEvent)
-				if val, ok := prIssueCounts[prReviewEvent.PullRequest.GetHTMLURL()]; ok {
-					prIssueCounts[prReviewEvent.PullRequest.GetHTMLURL()] = val + 1
-				} else {
-					prIssueCounts[prReviewEvent.PullRequest.GetHTMLURL()] = 1
-				}
+				prIssueCounts[prReviewEvent.PullRequest.GetHTMLURL()]++
 				prIssueTitle[prReviewEvent.PullRequest.GetHTMLURL()] = prReviewEvent.PullRequest.GetTitle()
 			case "PullRequestReviewCommentEvent":
 				prReviewCommentEvent := payload.(*github.PullRequestReviewCommentEvent)
-				if val, ok := prIssueCounts[prReviewCommentEvent.PullRequest.GetHTMLURL()]; ok {
-					prIssueCounts[prReviewCommentEvent.PullRequest.GetHTMLURL()] = val + 1
-				} else {
-					prIssueCounts[prReviewCommentEvent.PullRequest.GetHTMLURL()] = 1
-				}
+				prIssueCounts[prReviewCommentEvent.PullRequest.GetHTMLURL()]++
 				prIssueTitle[prReviewCommentEvent.PullRequest.GetHTMLURL()] = prReviewCommentEvent.PullRequest.GetTitle()
 			case "PullRequestReviewThreadEvent":
 				prReviewThreadEvent := payload.(*github.PullRequestReviewThreadEvent)
-				if val, ok := prIssueCounts[prReviewThreadEvent.PullRequest.GetHTMLURL()]; ok {
-					prIssueCounts[prReviewThreadEvent.PullRequest.GetHTMLURL()] = val + 1
-				} else {
-					prIssueCounts[prReviewThreadEvent.PullRequest.GetHTMLURL()] = 1
-				}
+				prIssueCounts[prReviewThreadEvent.PullRequest.GetHTMLURL()]++
 				prIssueTitle[prReviewThreadEvent.PullRequest.GetHTMLURL()] = prReviewThreadEvent.PullRequest.GetTitle()
 			case "PullRequestTargetEvent":
 				prTargetEvent := payload.(*github.PullRequestTargetEvent)
-				if val, ok := prIssueCounts[prTargetEvent.PullRequest.GetHTMLURL()]; ok {
-					prIssueCounts[prTargetEvent.PullRequest.GetHTMLURL()] = val + 1
-				} else {
-					prIssueCounts[prTargetEvent.PullRequest.GetHTMLURL()] = 1
-				}
+				prIssueCounts[prTargetEvent.PullRequest.GetHTMLURL()]++
 				prIssueTitle[prTargetEvent.PullRequest.GetHTMLURL()] = prTargetEvent.PullRequest.GetTitle()
 			case "IssuesEvent":
 				issuesEvent := payload.(*github.IssuesEvent)
-				if val, ok := prIssueCounts[issuesEvent.Issue.GetHTMLURL()]; ok {
-					prIssueCounts[issuesEvent.Issue.GetHTMLURL()] = val + 1
-				} else {
-					prIssueCounts[issuesEvent.Issue.GetHTMLURL()] = 1
-				}
+				prIssueCounts[issuesEvent.Issue.GetHTMLURL()]++
 				prIssueTitle[issuesEvent.Issue.GetHTMLURL()] = issuesEvent.Issue.GetTitle()
 			case "IssueCommentEvent":
 				issueCommentEvent := payload.(*github.IssueCommentEvent)
-				if val, ok := prIssueCounts[issueCommentEvent.Issue.GetHTMLURL()]; ok {
-					prIssueCounts[issueCommentEvent.Issue.GetHTMLURL()] = val + 1
-				} else {
-					prIssueCounts[issueCommentEvent.Issue.GetHTMLURL()] = 1
-				}
+				prIssueCounts[issueCommentEvent.Issue.GetHTMLURL()]++
 				prIssueTitle[issueCommentEvent.Issue.GetHTMLURL()] = issueCommentEvent.Issue.GetTitle()
 			}
 		}
