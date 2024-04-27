@@ -63,17 +63,17 @@ sudo mv gwir /usr/local/bin
 
 <!--
 TODO: 
-- Pass a "-user" flag to understand the activity of a user?
-- Automate releases via Github workflows?
-- Provide a --version flag
-- CLI tool downloadable via `go get` or `brew install`
-- Use a repo's pushed_at or updated_at to quickly filter out repos?
-  - https://stackoverflow.com/questions/15918588/github-api-v3-what-is-the-difference-between-pushed-at-and-updated-at
-  - https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-organization-repositories
+- Enrich data when -usr flag is passsed? Not all events have associated HTML URLs.
 - TUI
   - https://github.com/avelino/awesome-go?tab=readme-ov-file#command-line
   - https://github.com/charmbracelet/bubbletea
 - Frontend?
+- Provide a --version flag
+- Automate releases via Github workflows?
+- CLI tool downloadable via `go get` or `brew install`
+- Use a repo's pushed_at or updated_at to quickly filter out repos?
+  - https://stackoverflow.com/questions/15918588/github-api-v3-what-is-the-difference-between-pushed-at-and-updated-at
+  - https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-organization-repositories
 - Use a pretty image for the README. https://github.com/charmbracelet/vhs. Keep it up to date with vhs-actions
   - Asciicinema? https://github.com/kubecost/kubectl-cost/blob/main/assets/presentation-script.md
 - Pipe to Glow?
@@ -88,6 +88,7 @@ TODO:
 
 <!-- 
 DONE (newest to oldest):
+- First implementation of -usr flag.
 - Prettify output. Specifically PR/Issue title length?
 - Github MultiArch releases
 - Take params via args instead of env vars.
