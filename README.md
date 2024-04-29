@@ -53,7 +53,7 @@ $ gwir -h
 ## Install
 
 ```bash
-RELEASE=v0.2
+RELEASE=v0.3
 ARCH=macos-arm64  # macos-amd64, linux-amd64, windows-amd64
 
 curl -L -O https://github.com/thomasvn/gwir/releases/download/$RELEASE/gwir.$ARCH.tar.gz
