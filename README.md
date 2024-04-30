@@ -61,9 +61,12 @@ tar -xvf gwir.$ARCH.tar.gz
 sudo mv gwir /usr/local/bin
 ```
 
+Optionally, set up your Github Personal Access Token (PAT) following [this doc](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens). The PAT will need the following permission: `repo (Full control of private repositories)`.
+
 <!--
 TODO: 
 - Enrich data when -usr flag is passsed? Not all events have associated HTML URLs.
+- Validate the PAT has sufficient permissions?
 - TUI
   - https://github.com/avelino/awesome-go?tab=readme-ov-file#command-line
   - https://github.com/charmbracelet/bubbletea
