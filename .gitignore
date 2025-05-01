@@ -1,6 +1,5 @@
 .env
 ghs
-gwir*
 out
 .DS_Store
 builds
