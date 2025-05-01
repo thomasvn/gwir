@@ -1,42 +1,44 @@
-package main
+package github
 
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/google/go-github/v61/github"
+	"github.com/google/go-github/v71/github"
 )
 
-func AnalyzeUserActivity(client *github.Client, argopts ArgOpts) {
-	// Paginated query to get all events for the user
+func (a *Analyzer) AnalyzeUser() error {
 	allUserEvents := []*github.Event{}
 	page := 1
 	for {
 		opts := github.ListOptions{PerPage: 100, Page: page}
-		events, res, _ := client.Activity.ListEventsPerformedByUser(context.Background(), argopts.GITHUB_USER, false, &opts)
+		events, res, err := a.client.Activity.ListEventsPerformedByUser(context.Background(), a.config.GitHubUser, false, &opts)
+		if err != nil {
+			return fmt.Errorf("failed to list user events: %w", err)
+		}
 		allUserEvents = append(allUserEvents, events...)
-		// TODO: filter for timestamps here to reduce the # of API requests made
 		if res.NextPage == 0 {
 			break
 		}
 		page++
 	}
 
-	// Filter for events within the timestamp
 	recentUserEvents := []*github.Event{}
 	for _, event := range allUserEvents {
-		if event.GetCreatedAt().After(time.Now().Add(time.Duration(-argopts.DAYS) * time.Hour * 24)) {
+		if isWithinTimeRange(event, a.config.Days) {
 			recentUserEvents = append(recentUserEvents, event)
 		}
 	}
 
-	// Process the event types
 	type EventCount struct {
 		RepoCount          map[string]int
 		RepoEventTypeCount map[string]map[string]int
 	}
-	eventCounts := EventCount{RepoCount: make(map[string]int), RepoEventTypeCount: make(map[string]map[string]int)}
+	eventCounts := EventCount{
+		RepoCount:          make(map[string]int),
+		RepoEventTypeCount: make(map[string]map[string]int),
+	}
+
 	for _, event := range recentUserEvents {
 		eventCounts.RepoCount[event.GetRepo().GetName()]++
 		if _, ok := eventCounts.RepoEventTypeCount[event.GetRepo().GetName()]; !ok {
@@ -45,16 +47,19 @@ func AnalyzeUserActivity(client *github.Client, argopts ArgOpts) {
 		eventCounts.RepoEventTypeCount[event.GetRepo().GetName()][event.GetType()]++
 	}
 
-	// Print sorted results
+	fmt.Printf("\n\x1b[1;36m## User Activity Summary\x1b[0m\n\n")
 	repoCountSortedSlice := sortMap(eventCounts.RepoCount)
 	for _, pair := range repoCountSortedSlice {
-		fmt.Printf("\n%s: %d\n", pair.Key, pair.Value)
+		fmt.Printf("\x1b[1;33m### %s\x1b[0m \x1b[1;37mTotalEvents=\x1b[1;32m%d\x1b[0m\n\n",
+			pair.Key, pair.Value)
+
+		fmt.Printf("\x1b[1;37mEvent Types:\x1b[0m\n")
 		repoEventCountSortedSlice := sortMap(eventCounts.RepoEventTypeCount[pair.Key])
 		for _, pair := range repoEventCountSortedSlice {
-			fmt.Printf("  - %s: %d\n", pair.Key, pair.Value)
+			fmt.Printf("- \x1b[1;34m%s\x1b[0m: \x1b[1;32m%d\x1b[0m\n", pair.Key, pair.Value)
 		}
+		fmt.Printf("\n")
 	}
 
-	// TODO: Depending on the event type, print details and provide a link?
-	// TODO: Provide links to PRs/Issues/Repos?
+	return nil
 }

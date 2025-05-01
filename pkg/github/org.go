@@ -1,4 +1,4 @@
-package main
+package github
 
 import (
 	"context"
@@ -6,23 +6,28 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/google/go-github/v61/github"
+	"github.com/google/go-github/v71/github"
 )
 
-// AnalyzeOrgActivity looks at all repos in an organization. For each of the
-// repos, it prints the number and type of activities. It also prints the top X
-// PRs/Issues based on the number of events associated with the PR/Issue.
-func AnalyzeOrgActivity(client *github.Client, argopts ArgOpts) {
-	// Get all repos in this GITHUB_ORGANIZATION
+func trimString(s string, n int) string {
+	if len(s) > n {
+		return s[:n-3] + "..."
+	}
+	return s + strings.Repeat(" ", n-len(s))
+}
+
+func (a *Analyzer) AnalyzeOrg() error {
 	allRepos := []*github.Repository{}
 	page := 1
 	for {
 		opts := &github.RepositoryListByOrgOptions{}
 		opts.ListOptions.PerPage = 100
 		opts.ListOptions.Page = page
-		repos, res, _ := client.Repositories.ListByOrg(context.Background(), argopts.GITHUB_ORGANIZATION, opts)
+		repos, res, err := a.client.Repositories.ListByOrg(context.Background(), a.config.GitHubOrganization, opts)
+		if err != nil {
+			return fmt.Errorf("failed to list org repositories: %w", err)
+		}
 		allRepos = append(allRepos, repos...)
 		if res.NextPage == 0 {
 			break
@@ -30,8 +35,7 @@ func AnalyzeOrgActivity(client *github.Client, argopts ArgOpts) {
 		page++
 	}
 
-	// For each repo, print the number/type of events in the last X days
-	fmt.Printf("\n## Processing ... \n\n")
+	fmt.Printf("\n\x1b[1;36m## Processing ...\x1b[0m\n\n")
 	type RepoEventCount struct {
 		RepoName          string
 		EventTypeCount    map[string]int
@@ -39,13 +43,14 @@ func AnalyzeOrgActivity(client *github.Client, argopts ArgOpts) {
 		PRIssueTitle      map[string]string
 		TotalEvents       int
 	}
+
 	var wg sync.WaitGroup
 	repoEventCountsChan := make(chan RepoEventCount, len(allRepos))
 	for _, repo := range allRepos {
 		wg.Add(1)
 		go func(repo *github.Repository) {
 			defer wg.Done()
-			eventCounts, prIssueCounts, prIssueTitles, totalCount := getRepoEventsLastXDays(client, repo.Owner.GetLogin(), repo.GetName(), argopts.DAYS)
+			eventCounts, prIssueCounts, prIssueTitles, totalCount := a.getRepoEventsLastXDays(repo.Owner.GetLogin(), repo.GetName())
 			if totalCount > 0 {
 				repoEventCountsChan <- RepoEventCount{
 					RepoName:          repo.Owner.GetLogin() + "/" + repo.GetName(),
@@ -54,69 +59,72 @@ func AnalyzeOrgActivity(client *github.Client, argopts ArgOpts) {
 					PRIssueTitle:      prIssueTitles,
 					TotalEvents:       totalCount,
 				}
-				fmt.Printf("%s/%s. TotalEvents=%d\n", repo.Owner.GetLogin(), repo.GetName(), totalCount)
+				fmt.Printf("\x1b[1;33m%s/%s\x1b[0m \x1b[1;37mTotalEvents=\x1b[1;32m%d\x1b[0m\n",
+					repo.Owner.GetLogin(), repo.GetName(), totalCount)
 			}
 		}(repo)
 	}
 	wg.Wait()
 	close(repoEventCountsChan)
+
 	repoEventCounts := []RepoEventCount{}
 	for repoEventCount := range repoEventCountsChan {
 		repoEventCounts = append(repoEventCounts, repoEventCount)
 	}
 
-	// Order the results from above by TotalEvents
-	fmt.Printf("\n## Ordered results ... \n")
+	fmt.Printf("\n\x1b[1;36m## Ordered Results\x1b[0m\n\n")
 	sort.Slice(repoEventCounts, func(i, j int) bool {
 		return repoEventCounts[i].TotalEvents > repoEventCounts[j].TotalEvents
 	})
+
 	for _, repoEventCount := range repoEventCounts {
-		fmt.Printf("\n### %s. TotalEvents=%d  \n", repoEventCount.RepoName, repoEventCount.TotalEvents)
+		fmt.Printf("\x1b[1;33m### %s\x1b[0m \x1b[1;37mTotalEvents=\x1b[1;32m%d\x1b[0m\n\n",
+			repoEventCount.RepoName, repoEventCount.TotalEvents)
+
 		EventTypeCountSortedSlice := sortMap(repoEventCount.EventTypeCount)
+		fmt.Printf("\x1b[1;37mEvent Types:\x1b[0m\n")
 		for _, pair := range EventTypeCountSortedSlice {
-			fmt.Printf("  - %s : %d\n", pair.Key, pair.Value)
+			fmt.Printf("- \x1b[1;34m%s\x1b[0m: \x1b[1;32m%d\x1b[0m\n", pair.Key, pair.Value)
 		}
-		fmt.Printf("Top PRs/Issues:  \n")
+
+		fmt.Printf("\n\x1b[1;37mTop PRs/Issues:\x1b[0m\n")
 		count := 0
 		PRIssuesSortedSlice := sortMap(repoEventCount.PRIssueEventCount)
 		for _, pair := range PRIssuesSortedSlice {
 			title := trimString(repoEventCount.PRIssueTitle[pair.Key], 48)
-			fmt.Printf("  - [%s](%s) : %d\n", title, pair.Key, pair.Value)
+			fmt.Printf("- [\x1b[1;34m%s\x1b[0m](%s): \x1b[1;32m%d\x1b[0m\n",
+				title, pair.Key, pair.Value)
 			count++
-			if count >= argopts.TOPXACTIVITIES {
+			if count >= a.config.TopXActivities {
 				break
 			}
 		}
+		fmt.Printf("\n")
 	}
+
+	return nil
 }
 
-// getRepoEventsLastXDays analyzes all activity in a repo within the last x
-// days. It returns 1) a map of event types and their counts, 2) a map of
-// PRs/Issues and their event counts, 3) a map of PRs/Issues URLs and their
-// titles, and 4) the total number of events.
-func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x int) (map[string]int, map[string]int, map[string]string, int) {
+func (a *Analyzer) getRepoEventsLastXDays(owner string, repo string) (map[string]int, map[string]int, map[string]string, int) {
 	eventCounts := make(map[string]int)
 	prIssueCounts := make(map[string]int)
 	prIssueTitle := make(map[string]string)
 	totalCount := 0
 
-	// Paginated API queries against ListRepositoryEvents()
 	stop := false
 	page := 1
 	for {
 		opts := github.ListOptions{PerPage: 100, Page: page}
-		events, res, _ := client.Activity.ListRepositoryEvents(context.Background(), owner, repo, &opts)
+		events, res, _ := a.client.Activity.ListRepositoryEvents(context.Background(), owner, repo, &opts)
 		for _, event := range events {
-			if event.GetCreatedAt().Time.Before(time.Now().AddDate(0, 0, -1*x)) {
+			if !isWithinTimeRange(event, a.config.Days) {
 				stop = true
 				break
 			}
 
-			// Tally the event counts
 			eventCounts[event.GetType()]++
 			totalCount++
 
-			// Tally PR/Issue event counts
 			payload, _ := event.ParsePayload()
 			switch event.GetType() {
 			case "PullRequestEvent":
@@ -159,31 +167,4 @@ func getRepoEventsLastXDays(client *github.Client, owner string, repo string, x 
 	}
 
 	return eventCounts, prIssueCounts, prIssueTitle, totalCount
-}
-
-type pair struct {
-	Key   string
-	Value int
-}
-
-// sortMap sorts a map by its values in descending order.
-func sortMap(m map[string]int) []pair {
-	pairs := []pair{}
-	for k := range m {
-		pairs = append(pairs, pair{k, m[k]})
-	}
-	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i].Value > pairs[j].Value
-	})
-	return pairs
-}
-
-// trimString trims the input string to the specified length n. If the input
-// string is shorter than n, it pads the string with spaces until it reaches
-// length n.
-func trimString(s string, n int) string {
-	if len(s) > n {
-		return s[:n-3] + "..."
-	}
-	return s + strings.Repeat(" ", n-len(s))
 }

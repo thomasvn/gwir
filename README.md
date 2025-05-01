@@ -7,28 +7,32 @@ $ gwir -org opencost
 
 ## Processing ...
 
-opencost/opencost-grafana-dashboard. TotalEvents=16
-opencost/opencost-parquet-exporter. TotalEvents=1
-opencost/opencost-website. TotalEvents=1
-opencost/opencost-helm-chart. TotalEvents=35
-opencost/opencost-plugins. TotalEvents=31
-opencost/opencost. TotalEvents=101
+opencost/opencost-helm-chart TotalEvents=1
+opencost/opencost-website TotalEvents=1
+opencost/opencost-infra TotalEvents=94
+opencost/opencost-ui TotalEvents=5
+opencost/opencost TotalEvents=232
 
-## Ordered results ...
+## Ordered Results
 
-### opencost/opencost. TotalEvents=101
-  - IssueCommentEvent : 44
-  - PushEvent : 18
-  - PullRequestEvent : 13
-  - WatchEvent : 11
-  - CreateEvent : 7
-  - DeleteEvent : 4
-  - IssuesEvent : 2
-  - PullRequestReviewEvent : 2
+### opencost/opencost TotalEvents=232
+
+Event Types:
+- IssueCommentEvent: 47
+- PushEvent: 44
+- PullRequestEvent: 34
+- CreateEvent: 28
+- PullRequestReviewEvent: 20
+- WatchEvent: 19
+- DeleteEvent: 18
+- PullRequestReviewCommentEvent: 13
+- ForkEvent: 7
+- IssuesEvent: 2
+
 Top PRs/Issues:
-  - [TypeUtil Enhancements                           ](https://github.com/opencost/opencost/pull/2707) : 6
-  - [Intermittent "error":"vector cannot contain m...](https://github.com/opencost/opencost/issues/2704) : 6
-  - [AWS IRSA authorizer for cloud integrations      ](https://github.com/opencost/opencost/pull/2710) : 5
+- [cleanup usage for less repeated code, and ena...](https://github.com/opencost/opencost/pull/3112): 24
+- [continued integration test runner debugging     ](https://github.com/opencost/opencost/pull/3126): 10
+- [update permissions to properly run steps        ](https://github.com/opencost/opencost/pull/3132): 8
 
 ...
 
@@ -38,16 +42,17 @@ Top PRs/Issues:
 
 ```bash
 $ gwir -h
+Usage of gwir:
   -days int
-    	How many days back to analyze (default 7)
+        How many days back to analyze (default 7)
   -org string
-    	GitHub organization to analyze
+        GitHub organization to analyze
   -token string
-    	Optional. Passing a GitHub Personal Access Token allows you to view private repositories and make more API requests per hour. You can also set this token as an environment variable GITHUB_PERSONAL_ACCESS_TOKEN.
+        GitHub Personal Access Token (can also be set via GITHUB_PERSONAL_ACCESS_TOKEN env var)
   -top int
-    	How many top PRs/Issues to show (default 5)
+        How many top PRs/Issues to show (default 5)
   -usr string
-    	GitHub user to analyze
+        GitHub user to analyze
 ```
 
 ## Install
