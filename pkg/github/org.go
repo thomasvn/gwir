@@ -10,24 +10,62 @@ import (
 	"github.com/google/go-github/v71/github"
 )
 
-func trimString(s string, n int) string {
-	if len(s) > n {
-		return s[:n-3] + "..."
-	}
-	return s + strings.Repeat(" ", n-len(s))
+type RepoStats struct {
+	Name          string
+	EventCounts   map[string]int
+	PRIssueCounts map[string]int
+	PRIssueTitles map[string]string
+	TotalEvents   int
 }
 
 func (a *Analyzer) AnalyzeOrg() error {
-	allRepos := []*github.Repository{}
+	allRepos, err := a.fetchAllRepos()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("\n\x1b[1;36m## Processing ...\x1b[0m\n\n")
+
+	results := make(chan RepoStats, len(allRepos))
+	var wg sync.WaitGroup
+
+	for _, repo := range allRepos {
+		wg.Add(1)
+		go func(repo *github.Repository) {
+			defer wg.Done()
+			a.processRepo(repo, results)
+		}(repo)
+	}
+
+	wg.Wait()
+	close(results)
+
+	var stats []RepoStats
+	for repoStats := range results {
+		stats = append(stats, repoStats)
+	}
+
+	a.displayResults(stats)
+	return nil
+}
+
+func (a *Analyzer) fetchAllRepos() ([]*github.Repository, error) {
+	var allRepos []*github.Repository
 	page := 1
+
 	for {
-		opts := &github.RepositoryListByOrgOptions{}
-		opts.ListOptions.PerPage = 100
-		opts.ListOptions.Page = page
+		opts := &github.RepositoryListByOrgOptions{
+			ListOptions: github.ListOptions{
+				PerPage: 100,
+				Page:    page,
+			},
+		}
+
 		repos, res, err := a.client.Repositories.ListByOrg(context.Background(), a.config.GitHubOrganization, opts)
 		if err != nil {
-			return fmt.Errorf("failed to list org repositories: %w", err)
+			return nil, fmt.Errorf("failed to list org repositories: %w", err)
 		}
+
 		allRepos = append(allRepos, repos...)
 		if res.NextPage == 0 {
 			break
@@ -35,63 +73,109 @@ func (a *Analyzer) AnalyzeOrg() error {
 		page++
 	}
 
-	fmt.Printf("\n\x1b[1;36m## Processing ...\x1b[0m\n\n")
-	type RepoEventCount struct {
-		RepoName          string
-		EventTypeCount    map[string]int
-		PRIssueEventCount map[string]int
-		PRIssueTitle      map[string]string
-		TotalEvents       int
-	}
+	return allRepos, nil
+}
 
-	var wg sync.WaitGroup
-	repoEventCountsChan := make(chan RepoEventCount, len(allRepos))
-	for _, repo := range allRepos {
-		wg.Add(1)
-		go func(repo *github.Repository) {
-			defer wg.Done()
-			eventCounts, prIssueCounts, prIssueTitles, totalCount := a.getRepoEventsLastXDays(repo.Owner.GetLogin(), repo.GetName())
-			if totalCount > 0 {
-				repoEventCountsChan <- RepoEventCount{
-					RepoName:          repo.Owner.GetLogin() + "/" + repo.GetName(),
-					EventTypeCount:    eventCounts,
-					PRIssueEventCount: prIssueCounts,
-					PRIssueTitle:      prIssueTitles,
-					TotalEvents:       totalCount,
-				}
-				fmt.Printf("\x1b[1;33m%s/%s\x1b[0m \x1b[1;37mTotalEvents=\x1b[1;32m%d\x1b[0m\n",
-					repo.Owner.GetLogin(), repo.GetName(), totalCount)
+func (a *Analyzer) processRepo(repo *github.Repository, results chan<- RepoStats) {
+	eventCounts := make(map[string]int)
+	prIssueCounts := make(map[string]int)
+	prIssueTitles := make(map[string]string)
+	totalCount := 0
+
+	owner := repo.Owner.GetLogin()
+	repoName := repo.GetName()
+
+	page := 1
+	for {
+		opts := github.ListOptions{PerPage: 100, Page: page}
+		events, res, err := a.client.Activity.ListRepositoryEvents(context.Background(), owner, repoName, &opts)
+		if err != nil {
+			fmt.Printf("Error fetching events for %s/%s: %v\n", owner, repoName, err)
+			return
+		}
+
+		for _, event := range events {
+			if !isWithinTimeRange(event, a.config.Days) {
+				break
 			}
-		}(repo)
-	}
-	wg.Wait()
-	close(repoEventCountsChan)
 
-	repoEventCounts := []RepoEventCount{}
-	for repoEventCount := range repoEventCountsChan {
-		repoEventCounts = append(repoEventCounts, repoEventCount)
+			eventCounts[event.GetType()]++
+			totalCount++
+
+			payload, err := event.ParsePayload()
+			if err != nil {
+				continue
+			}
+
+			switch e := payload.(type) {
+			case *github.PullRequestEvent:
+				updatePRIssueStats(prIssueCounts, prIssueTitles, e.PullRequest)
+			case *github.PullRequestReviewEvent:
+				updatePRIssueStats(prIssueCounts, prIssueTitles, e.PullRequest)
+			case *github.PullRequestReviewCommentEvent:
+				updatePRIssueStats(prIssueCounts, prIssueTitles, e.PullRequest)
+			case *github.PullRequestReviewThreadEvent:
+				updatePRIssueStats(prIssueCounts, prIssueTitles, e.PullRequest)
+			case *github.PullRequestTargetEvent:
+				updatePRIssueStats(prIssueCounts, prIssueTitles, e.PullRequest)
+			case *github.IssuesEvent:
+				updatePRIssueStats(prIssueCounts, prIssueTitles, e.Issue)
+			case *github.IssueCommentEvent:
+				updatePRIssueStats(prIssueCounts, prIssueTitles, e.Issue)
+			}
+		}
+
+		if res.NextPage == 0 {
+			break
+		}
+		page = res.NextPage
 	}
 
+	if totalCount > 0 {
+		results <- RepoStats{
+			Name:          owner + "/" + repoName,
+			EventCounts:   eventCounts,
+			PRIssueCounts: prIssueCounts,
+			PRIssueTitles: prIssueTitles,
+			TotalEvents:   totalCount,
+		}
+		fmt.Printf("\x1b[1;33m%s/%s\x1b[0m \x1b[1;37mTotalEvents=\x1b[1;32m%d\x1b[0m\n", owner, repoName, totalCount)
+	}
+}
+
+func updatePRIssueStats(counts map[string]int, titles map[string]string, issue interface{}) {
+	var url, title string
+	switch i := issue.(type) {
+	case *github.PullRequest:
+		url = i.GetHTMLURL()
+		title = i.GetTitle()
+	case *github.Issue:
+		url = i.GetHTMLURL()
+		title = i.GetTitle()
+	}
+	counts[url]++
+	titles[url] = title
+}
+
+func (a *Analyzer) displayResults(stats []RepoStats) {
 	fmt.Printf("\n\x1b[1;36m## Ordered Results\x1b[0m\n\n")
-	sort.Slice(repoEventCounts, func(i, j int) bool {
-		return repoEventCounts[i].TotalEvents > repoEventCounts[j].TotalEvents
+	sort.Slice(stats, func(i, j int) bool {
+		return stats[i].TotalEvents > stats[j].TotalEvents
 	})
 
-	for _, repoEventCount := range repoEventCounts {
+	for _, repo := range stats {
 		fmt.Printf("\x1b[1;33m### %s\x1b[0m \x1b[1;37mTotalEvents=\x1b[1;32m%d\x1b[0m\n\n",
-			repoEventCount.RepoName, repoEventCount.TotalEvents)
+			repo.Name, repo.TotalEvents)
 
-		EventTypeCountSortedSlice := sortMap(repoEventCount.EventTypeCount)
 		fmt.Printf("\x1b[1;37mEvent Types:\x1b[0m\n")
-		for _, pair := range EventTypeCountSortedSlice {
+		for _, pair := range sortMap(repo.EventCounts) {
 			fmt.Printf("- \x1b[1;34m%s\x1b[0m: \x1b[1;32m%d\x1b[0m\n", pair.Key, pair.Value)
 		}
 
 		fmt.Printf("\n\x1b[1;37mTop PRs/Issues:\x1b[0m\n")
 		count := 0
-		PRIssuesSortedSlice := sortMap(repoEventCount.PRIssueEventCount)
-		for _, pair := range PRIssuesSortedSlice {
-			title := trimString(repoEventCount.PRIssueTitle[pair.Key], 48)
+		for _, pair := range sortMap(repo.PRIssueCounts) {
+			title := trimString(repo.PRIssueTitles[pair.Key], 48)
 			fmt.Printf("- [\x1b[1;34m%s\x1b[0m](%s): \x1b[1;32m%d\x1b[0m\n",
 				title, pair.Key, pair.Value)
 			count++
@@ -101,70 +185,11 @@ func (a *Analyzer) AnalyzeOrg() error {
 		}
 		fmt.Printf("\n")
 	}
-
-	return nil
 }
 
-func (a *Analyzer) getRepoEventsLastXDays(owner string, repo string) (map[string]int, map[string]int, map[string]string, int) {
-	eventCounts := make(map[string]int)
-	prIssueCounts := make(map[string]int)
-	prIssueTitle := make(map[string]string)
-	totalCount := 0
-
-	stop := false
-	page := 1
-	for {
-		opts := github.ListOptions{PerPage: 100, Page: page}
-		events, res, _ := a.client.Activity.ListRepositoryEvents(context.Background(), owner, repo, &opts)
-		for _, event := range events {
-			if !isWithinTimeRange(event, a.config.Days) {
-				stop = true
-				break
-			}
-
-			eventCounts[event.GetType()]++
-			totalCount++
-
-			payload, _ := event.ParsePayload()
-			switch event.GetType() {
-			case "PullRequestEvent":
-				prEvent := payload.(*github.PullRequestEvent)
-				prIssueCounts[prEvent.PullRequest.GetHTMLURL()]++
-				prIssueTitle[prEvent.PullRequest.GetHTMLURL()] = prEvent.PullRequest.GetTitle()
-			case "PullRequestReviewEvent":
-				prReviewEvent := payload.(*github.PullRequestReviewEvent)
-				prIssueCounts[prReviewEvent.PullRequest.GetHTMLURL()]++
-				prIssueTitle[prReviewEvent.PullRequest.GetHTMLURL()] = prReviewEvent.PullRequest.GetTitle()
-			case "PullRequestReviewCommentEvent":
-				prReviewCommentEvent := payload.(*github.PullRequestReviewCommentEvent)
-				prIssueCounts[prReviewCommentEvent.PullRequest.GetHTMLURL()]++
-				prIssueTitle[prReviewCommentEvent.PullRequest.GetHTMLURL()] = prReviewCommentEvent.PullRequest.GetTitle()
-			case "PullRequestReviewThreadEvent":
-				prReviewThreadEvent := payload.(*github.PullRequestReviewThreadEvent)
-				prIssueCounts[prReviewThreadEvent.PullRequest.GetHTMLURL()]++
-				prIssueTitle[prReviewThreadEvent.PullRequest.GetHTMLURL()] = prReviewThreadEvent.PullRequest.GetTitle()
-			case "PullRequestTargetEvent":
-				prTargetEvent := payload.(*github.PullRequestTargetEvent)
-				prIssueCounts[prTargetEvent.PullRequest.GetHTMLURL()]++
-				prIssueTitle[prTargetEvent.PullRequest.GetHTMLURL()] = prTargetEvent.PullRequest.GetTitle()
-			case "IssuesEvent":
-				issuesEvent := payload.(*github.IssuesEvent)
-				prIssueCounts[issuesEvent.Issue.GetHTMLURL()]++
-				prIssueTitle[issuesEvent.Issue.GetHTMLURL()] = issuesEvent.Issue.GetTitle()
-			case "IssueCommentEvent":
-				issueCommentEvent := payload.(*github.IssueCommentEvent)
-				prIssueCounts[issueCommentEvent.Issue.GetHTMLURL()]++
-				prIssueTitle[issueCommentEvent.Issue.GetHTMLURL()] = issueCommentEvent.Issue.GetTitle()
-			}
-		}
-		if stop {
-			break
-		}
-		if res.NextPage == 0 {
-			break
-		}
-		page++
+func trimString(s string, n int) string {
+	if len(s) > n {
+		return s[:n-3] + "..."
 	}
-
-	return eventCounts, prIssueCounts, prIssueTitle, totalCount
+	return s + strings.Repeat(" ", n-len(s))
 }

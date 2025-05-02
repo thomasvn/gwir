@@ -74,7 +74,7 @@ TODO:
 - TUI
   - https://github.com/avelino/awesome-go?tab=readme-ov-file#command-line
   - https://github.com/charmbracelet/bubbletea
-- Frontend?
+- Frontend? Build a Github App for this?
 - Provide a --version flag
 - Automate releases via Github workflows?
 - CLI tool downloadable via `go get` or `brew install`
